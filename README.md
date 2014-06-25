@@ -1,4 +1,4 @@
-### libsignal
+### libsignals
 
 A library for handling signals in UNIX-like environments.
 
