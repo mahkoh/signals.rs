@@ -1,4 +1,4 @@
-### libsignals
+### signals.rs
 
 A library for handling signals in UNIX-like environments.
 
