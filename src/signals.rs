@@ -23,11 +23,12 @@
 extern crate libc;
 
 use self::libc::{c_int};
+use std::sync::{Once, ONCE_INIT};
 use std::sync::atomics::{AtomicBool, INIT_ATOMIC_BOOL, Relaxed};
 use std::mem::{forget, transmute};
 
 static mut ALIVE: AtomicBool = INIT_ATOMIC_BOOL;
-static mut INITIALIZED: AtomicBool = INIT_ATOMIC_BOOL;
+static mut INITIALIZED: Once = ONCE_INIT;
 static mut SND: *Sender<Signal> = 0 as *Sender<Signal>;
 static mut RCV: *Receiver<Signal> = 0 as *Receiver<Signal>;
 
@@ -36,7 +37,7 @@ extern {
 }
 
 unsafe extern fn handler(num: c_int) {
-    if !ALIVE.load(Relaxed) || !INITIALIZED.load(Relaxed) {
+    if !ALIVE.load(Relaxed) {
         return;
     }
     let snd: &Sender<Signal> = transmute(SND);
@@ -144,10 +145,7 @@ impl Signals {
     /// Returns `None` if there is already another signal handler in the program.
     pub fn new() -> Option<Signals> {
         unsafe {
-            if ALIVE.compare_and_swap(false, true, Relaxed) {
-                return None;
-            }
-            if !INITIALIZED.compare_and_swap(false, true, Relaxed) {
+            INITIALIZED.doit(|| {
                 let (s, r) = channel();
                 let s = box s;
                 let r = box r;
@@ -155,6 +153,9 @@ impl Signals {
                 RCV = &*r as *_;
                 forget(s);
                 forget(r);
+            });
+            if ALIVE.compare_and_swap(false, true, Relaxed) {
+                return None;
             }
             Some(Signals { _unit: () })
         }
