@@ -23,7 +23,7 @@
 extern crate libc;
 
 use self::libc::{c_int};
-use std::sync::atomics::{AtomicBool, INIT_ATOMIC_BOOL, Relaxed, Release};
+use std::sync::atomics::{AtomicBool, INIT_ATOMIC_BOOL, Relaxed};
 use std::mem::{forget, transmute};
 
 static mut ALIVE: AtomicBool = INIT_ATOMIC_BOOL;
@@ -147,7 +147,7 @@ impl Signals {
             if ALIVE.compare_and_swap(false, true, Relaxed) {
                 return None;
             }
-            if !INITIALIZED.load(Relaxed) {
+            if !INITIALIZED.compare_and_swap(false, true, Relaxed) {
                 let (s, r) = channel();
                 let s = box s;
                 let r = box r;
@@ -155,7 +155,6 @@ impl Signals {
                 RCV = &*r as *_;
                 forget(s);
                 forget(r);
-                INITIALIZED.store(true, Release);
             }
             Some(Signals { _unit: () })
         }
