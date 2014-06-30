@@ -29,8 +29,8 @@ use std::mem::{forget, transmute};
 
 static mut ALIVE: AtomicBool = INIT_ATOMIC_BOOL;
 static mut INITIALIZED: Once = ONCE_INIT;
-static mut SND: *Sender<Signal> = 0 as *Sender<Signal>;
-static mut RCV: *Receiver<Signal> = 0 as *Receiver<Signal>;
+static mut SND: *const Sender<Signal> = 0 as *const Sender<Signal>;
+static mut RCV: *const Receiver<Signal> = 0 as *const Receiver<Signal>;
 
 extern {
     fn signal(signum: c_int, hdlr: Option<unsafe extern fn(c_int)>);
@@ -149,8 +149,8 @@ impl Signals {
                 let (s, r) = channel();
                 let s = box s;
                 let r = box r;
-                SND = &*s as *_;
-                RCV = &*r as *_;
+                SND = &*s as *const _;
+                RCV = &*r as *const _;
                 forget(s);
                 forget(r);
             });
