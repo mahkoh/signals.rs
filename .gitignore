@@ -3,3 +3,4 @@ doc
 bin
 target
 !.gitignore
+Cargo.lock
