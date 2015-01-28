@@ -1,9 +1,8 @@
 extern crate signals;
-extern crate debug;
 
 fn main() {
     let sigs = signals::Signals::new().unwrap();
-    sigs.subscribe(signals::TermStop);
+    sigs.subscribe(signals::Signal::TermStop);
     for s in sigs.receiver().iter() {
         println!("{:?}", s);
     }
