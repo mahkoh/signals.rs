@@ -2,6 +2,11 @@
 name = "signals"
 version = "0.1.0"
 authors = [ "mahkoh" ]
+license = "MIT"
 
-[[lib]]
+[lib]
 name = "signals"
+
+[[bin]]
+name = "test"
+path = "examples/test.rs"

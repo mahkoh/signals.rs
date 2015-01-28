@@ -1,10 +1,10 @@
 //! A library for handling signals in UNIX-like environments.
 //!
 //! Using this library it is possible to subscribe and unsubscribe from signals and to
-//! handle them asynchronously. 
-//! 
+//! handle them asynchronously.
+//!
 //! # Example
-//! 
+//!
 //! ```rust
 //! let signals = Signals::new().unwrap();
 //! signals.subscribe(Interrupt);
@@ -12,22 +12,22 @@
 //!     println!("{:?}", s);
 //! }
 //! ```
-//! 
+//!
 //! At any given time there can only be one signal handler in the program.
 //! `Signals::new()` returns `None` if there is already another signal handler.
-
-#![crate_id = "signals#0.1.0"]
 #![crate_type = "lib"]
-#![license = "MIT"]
 
+#[allow(unstable)]
 extern crate libc;
 
 use self::libc::{c_int};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Once, ONCE_INIT};
-use std::sync::atomics::{AtomicBool, INIT_ATOMIC_BOOL, Relaxed};
+use std::sync::atomic::{AtomicBool, ATOMIC_BOOL_INIT};
+use std::sync::atomic::Ordering::Relaxed;
 use std::mem::{forget, transmute};
 
-static mut ALIVE: AtomicBool = INIT_ATOMIC_BOOL;
+static mut ALIVE: AtomicBool = ATOMIC_BOOL_INIT;
 static mut INITIALIZED: Once = ONCE_INIT;
 static mut SND: *const Sender<Signal> = 0 as *const Sender<Signal>;
 static mut RCV: *const Receiver<Signal> = 0 as *const Receiver<Signal>;
@@ -42,39 +42,40 @@ unsafe extern fn handler(num: c_int) {
     }
     let snd: &Sender<Signal> = transmute(SND);
     match num {
-        _ if num == Abort     as c_int => snd.send(Abort),
-        _ if num == Alarm     as c_int => snd.send(Alarm),
-        _ if num == Bus       as c_int => snd.send(Bus),
-        _ if num == Child     as c_int => snd.send(Child),
-        _ if num == Continue  as c_int => snd.send(Continue),
-        _ if num == FPE       as c_int => snd.send(FPE),
-        _ if num == Hangup    as c_int => snd.send(Hangup),
-        _ if num == Illegal   as c_int => snd.send(Illegal),
-        _ if num == Interrupt as c_int => snd.send(Interrupt),
-        _ if num == Kill      as c_int => snd.send(Kill),
-        _ if num == Pipe      as c_int => snd.send(Pipe),
-        _ if num == Quit      as c_int => snd.send(Quit),
-        _ if num == Poll      as c_int => snd.send(Poll),
-        _ if num == Prof      as c_int => snd.send(Prof),
-        _ if num == Segfault  as c_int => snd.send(Segfault),
-        _ if num == Stop      as c_int => snd.send(Stop),
-        _ if num == TermStop  as c_int => snd.send(TermStop),
-        _ if num == Sys       as c_int => snd.send(Sys),
-        _ if num == Terminate as c_int => snd.send(Terminate),
-        _ if num == Trap      as c_int => snd.send(Trap),
-        _ if num == TTIN      as c_int => snd.send(TTIN),
-        _ if num == TTOU      as c_int => snd.send(TTOU),
-        _ if num == Urgent    as c_int => snd.send(Urgent),
-        _ if num == User1     as c_int => snd.send(User1),
-        _ if num == User2     as c_int => snd.send(User2),
-        _ if num == WinSize   as c_int => snd.send(WinSize),
-        _ if num == XCPU      as c_int => snd.send(XCPU),
-        _ if num == XFSZ      as c_int => snd.send(XFSZ),
-        _ => { },
-    }
+        _ if num == Signal::Abort     as c_int => snd.send(Signal::Abort),
+        _ if num == Signal::Alarm     as c_int => snd.send(Signal::Alarm),
+        _ if num == Signal::Bus       as c_int => snd.send(Signal::Bus),
+        _ if num == Signal::Child     as c_int => snd.send(Signal::Child),
+        _ if num == Signal::Continue  as c_int => snd.send(Signal::Continue),
+        _ if num == Signal::FPE       as c_int => snd.send(Signal::FPE),
+        _ if num == Signal::Hangup    as c_int => snd.send(Signal::Hangup),
+        _ if num == Signal::Illegal   as c_int => snd.send(Signal::Illegal),
+        _ if num == Signal::Interrupt as c_int => snd.send(Signal::Interrupt),
+        _ if num == Signal::Kill      as c_int => snd.send(Signal::Kill),
+        _ if num == Signal::Pipe      as c_int => snd.send(Signal::Pipe),
+        _ if num == Signal::Quit      as c_int => snd.send(Signal::Quit),
+        _ if num == Signal::Poll      as c_int => snd.send(Signal::Poll),
+        _ if num == Signal::Prof      as c_int => snd.send(Signal::Prof),
+        _ if num == Signal::Segfault  as c_int => snd.send(Signal::Segfault),
+        _ if num == Signal::Stop      as c_int => snd.send(Signal::Stop),
+        _ if num == Signal::TermStop  as c_int => snd.send(Signal::TermStop),
+        _ if num == Signal::Sys       as c_int => snd.send(Signal::Sys),
+        _ if num == Signal::Terminate as c_int => snd.send(Signal::Terminate),
+        _ if num == Signal::Trap      as c_int => snd.send(Signal::Trap),
+        _ if num == Signal::TTIN      as c_int => snd.send(Signal::TTIN),
+        _ if num == Signal::TTOU      as c_int => snd.send(Signal::TTOU),
+        _ if num == Signal::Urgent    as c_int => snd.send(Signal::Urgent),
+        _ if num == Signal::User1     as c_int => snd.send(Signal::User1),
+        _ if num == Signal::User2     as c_int => snd.send(Signal::User2),
+        _ if num == Signal::WinSize   as c_int => snd.send(Signal::WinSize),
+        _ if num == Signal::XCPU      as c_int => snd.send(Signal::XCPU),
+        _ if num == Signal::XFSZ      as c_int => snd.send(Signal::XFSZ),
+        _ => Ok(()),
+    }.unwrap_or_else(|_| ());
 }
 
 /// Available signals.
+#[derive(Copy, Debug)]
 pub enum Signal {
     /// Process abort signal
     Abort     = 6,
@@ -135,9 +136,7 @@ pub enum Signal {
 }
 
 /// Signal handler
-pub struct Signals {
-    _unit: (),
-}
+pub struct Signals;
 
 impl Signals {
     /// Create a new signal handler
@@ -145,10 +144,10 @@ impl Signals {
     /// Returns `None` if there is already another signal handler in the program.
     pub fn new() -> Option<Signals> {
         unsafe {
-            INITIALIZED.doit(|| {
+            INITIALIZED.call_once(|| {
                 let (s, r) = channel();
-                let s = box s;
-                let r = box r;
+                let s = Box::new(s);
+                let r = Box::new(r);
                 SND = &*s as *const _;
                 RCV = &*r as *const _;
                 forget(s);
@@ -157,7 +156,7 @@ impl Signals {
             if ALIVE.compare_and_swap(false, true, Relaxed) {
                 return None;
             }
-            Some(Signals { _unit: () })
+            Some(Signals)
         }
     }
 
@@ -176,7 +175,7 @@ impl Signals {
 
     /// Create a non-blocking iterator over all received signals.
     pub fn iter<'a>(&'a self) -> SignalIter<'a> {
-        SignalIter { _unit: () }
+        SignalIter
     }
 
     /// Return a reference to the internal `Receiver`.
@@ -192,11 +191,11 @@ impl Drop for Signals {
 }
 
 /// Non-blocking iterator over the available signals.
-pub struct SignalIter<'a> {
-    _unit: (),
-}
+pub struct SignalIter<'a>;
 
-impl<'a> Iterator<Signal> for SignalIter<'a> {
+impl<'a> Iterator for SignalIter<'a> {
+    type Item = Signal;
+
     fn next(&mut self) -> Option<Signal> {
         let rcv: &Receiver<Signal> = unsafe { transmute(RCV) };
         match rcv.try_recv() {
